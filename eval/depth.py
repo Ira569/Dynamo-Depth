@@ -49,7 +49,8 @@ def main():
     out_strings.append('====== Depth Eval on Overall Test Set ======\n')
 
     # Initialize the dataloader
-    filenames = readlines(osp.join(proj_dir, 'splits', opt.split, 'test_files.txt'))
+    # filenames = readlines(osp.join(proj_dir, 'splits', opt.split, 'test_files.txt'))
+    filenames = readlines(osp.join(proj_dir, 'splits', opt.split, 'test_files_mini.txt'))
     assert len(filenames) > 0, 'Number of items for eval must be > 0.'
     dataset = trainer.get_dataset(filenames, is_train=False, load_depth=True, load_mask=False)
     dataset.img_type = opt.eval_img_type
@@ -69,7 +70,7 @@ def main():
             batch_cnt = outputs[('disp', 0, 0)].size(0) # since batch_size can be >1 and drop_last=False
             
             # Compute and aggregate depth performance metrics
-            outputs[('disp_scaled', 0, 0)], _ = disp_to_depth(outputs[('disp', 0, 0)], opt.min_depth, opt.max_depth)
+            outputs[('disp_scaled', 0, 0)], depth = disp_to_depth(outputs[('disp', 0, 0)], opt.min_depth, opt.max_depth)
             met = depth_metrics(inputs, outputs)
             for m in metric_names:
                 metrics[m] += met[m].item() * batch_cnt
@@ -82,7 +83,8 @@ def main():
     ### Part 2 - Compute mask-dependent depth performance
 
     out_strings.append('====== Depth Eval on Test Set with Segmentation Annotations ======\n')
-    mask_split_path = osp.join(proj_dir, 'splits', opt.split, 'test_mask_files.txt')
+    # mask_split_path = osp.join(proj_dir, 'splits', opt.split, 'test_mask_files.txt')
+    mask_split_path = osp.join(proj_dir, 'splits', opt.split, 'test_mask_files_mini.txt')
     if opt.dataset == 'kitti':
         out_strings.append('Mask Split Evaluation Skipped for KITTI.')
     else:
