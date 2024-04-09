@@ -52,7 +52,8 @@ def get_intersect_fraction(points, corners):
 
     return ((0 < vi) & (vi < ii) & (0 < vj) & (vj < jj) & (0 < vk) & (vk < kk)).mean()
 
-
+#todo 为了做我的事情，在对每帧生成下采样图像，文件夹之后，还需要有一个标记那张图是关键帧的文件，
+# ps: 那个test_files就很像是这样的一个文件，不过我还是自己写一写吧
 if __name__ == '__main__':
     cam_names=['CAM_FRONT','CAM_FRONT_LEFT','CAM_FRONT_RIGHT','CAM_BACK','CAM_BACK_LEFT','CAM_BACK_RIGHT']
     for cam_channel in cam_names:
@@ -104,17 +105,21 @@ if __name__ == '__main__':
             scene_token = sc['token']
             scene_name = sc['name']
             log_token = sc['log_token']
-            nbr_samples = sc['nbr_samples']
+            nbr_samples = sc['nbr_samples'] # number of samples
             first_sample_token = sc['first_sample_token']
             last_sample_token = sc['last_sample_token']
 
             first_sample = nusc.get('sample', first_sample_token)
-            samples = get_linked_list(first_sample, 'sample')       # used for consistency only
-
+            samples = get_linked_list(first_sample, 'sample')      # used for consistency only
+            # first_sample的camera是first_cam
             first_cam = nusc.get('sample_data', first_sample['data'][cam_channel])
+            # cams: list:229 of dict{14},按时间顺序
             cams = get_linked_list(first_cam, 'sample_data')
             sample_cams = [c for c in cams if c['is_key_frame']]
-            # 一张关键帧后接五张非关键帧
+
+            sample_indices = [idx for idx, c in enumerate(cams) if c['is_key_frame']]
+
+            # 一张关键帧后可能接五张非关键帧
             first_lidar = nusc.get('sample_data', first_sample['data'][lidar_channel])
             unmapped_lidars = get_linked_list(first_lidar, 'sample_data')
             lidars = [
