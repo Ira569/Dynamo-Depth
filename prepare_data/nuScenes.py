@@ -114,7 +114,7 @@ if __name__ == '__main__':
             first_cam = nusc.get('sample_data', first_sample['data'][cam_channel])
             cams = get_linked_list(first_cam, 'sample_data')
             sample_cams = [c for c in cams if c['is_key_frame']]
-
+            # 一张关键帧后接五张非关键帧
             first_lidar = nusc.get('sample_data', first_sample['data'][lidar_channel])
             unmapped_lidars = get_linked_list(first_lidar, 'sample_data')
             lidars = [
@@ -276,7 +276,7 @@ if __name__ == '__main__':
             with open(osp.join(data_root, 'scenes', scene_name, cam_name, 'odometry.txt'), 'w') as fh:
                 for line in poses:
                     fh.write(line + '\n')
-
+            # ts是 后一帧减前一帧的时间戳 用的应该是所有非关键帧
             time_steps = np.array([np.rint((c2['timestamp'] - c1['timestamp']) / 1000) for c1,c2 in zip(cams[:-1],cams[1:])]).astype(np.uint8).tolist() # in milisec
             with open(osp.join(data_root, 'scenes', scene_name, cam_name, img_d_name, 'ts.json'), 'w') as fh:
                 json.dump(time_steps, fh)
