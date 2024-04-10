@@ -151,6 +151,18 @@ def vis_segment(opt, trainer, val_segment, outdir):
 
     # Initialize the dataloader  # 去掉首和尾  比如总共224张->去掉后从1开始到222 一共222张
     filenames = [f for f in get_filenames(val_segment, opt) if not is_edge(f, opt)]
+    #nuscenes-mini/scenes/scene-0061/FRONT/rgb/downsample/keyframe_idx.txt
+    idx_dir_path = osp.join(opt.data_path,filenames[0].split(" ")[0],opt.cam_name,'rgb',opt.eval_img_type)
+    idx_path = osp.join(idx_dir_path,'keyframe_idx.txt')
+    idx_lists = []
+    sample_token_map = {}
+    with open(idx_path, 'r') as file:
+        for line in file:
+            words = line.strip().split()
+            idx_lists.append(int(words[1]))
+            sample_token_map[words[1]]= words[2]
+
+
     dataset = trainer.get_dataset(filenames, is_train=False, load_depth=False, load_mask=False, path=True)
     dataset.img_type = opt.eval_img_type
     loader = DataLoader(dataset, 1, False, num_workers=opt.num_workers, pin_memory=True, drop_last=False)
@@ -159,12 +171,20 @@ def vis_segment(opt, trainer, val_segment, outdir):
     vis_list = [dict() for i in range(len(loader))]
     for batch_idx, inputs in tqdm(enumerate(loader), desc='Computing per-frame predictions', total=len(loader)):
         frame_vis = get_vis(opt, trainer, inputs, ref_frame_id=opt.frame_ids[1], scale=0, items=arrangement[0])
+        img_idx = int(inputs['paths'][1][0])
         f_index = int(inputs['paths'][1][0]) - 1
         vis_list[f_index].update(frame_vis)
+        if img_idx in idx_lists:
+            idx_sample_token = sample_token_map[str(img_idx)]
+            _, depth_map = disp_to_depth(frame_vis['disp'], opt.min_depth, opt.max_depth)
+            save_name = 'dep_'+'{:06d}'.format(img_idx)+'.pt'
+            torch.save(depth_map, osp.join(idx_dir_path,save_name))
+            # save_depth_map(depth);
+
 
     out_frames = combine_vis(vis_list, arrangement)
 
-    out_vid_name = osp.join(outdir, '{}.mp4'.format(val_segment.split('/')[1]))
+    out_vid_name = osp.join(outdir, '{}.mp4'.format(val_segment.split('/')[2]+'_'+opt.cam_name))
     fps = 13 if opt.dataset == "nuscenes" else 10  # dataset info
     make_mp4(out_frames, out_vid_name, fps=fps, bgr=False)
     print(f'Saved to `{out_vid_name}`\n')
@@ -183,25 +203,26 @@ def main():
     model_name, ckpt_name = get_model_ckpt_name(opt.load_ckpt)
     outdir = join_dir(opt.eval_dir, f'{model_name}_{opt.dataset}', 'vis', ckpt_name)
 
-    # Initialize the trainer object
-    trainer = Trainer(opt)
-    trainer.set_eval()
-    trainer.setup_phase(
-        'fine_tune')  # assuming all modules are trained / no model is just initialized that needs to be turned off
+    cam_names=['FRONT','FRONT_LEFT','FRONT_RIGHT','BACK','BACK_LEFT','BACK_RIGHT']
+    for cam_channel in cam_names:
+        opt.cam_name = cam_channel
+        # Initialize the trainer object
+        trainer = Trainer(opt)
+        trainer.set_eval()
+        trainer.setup_phase(
+            'fine_tune')  # assuming all modules are trained / no model is just initialized that needs to be turned off
 
-    # Get segments to visualize
-    # files = readlines(osp.join(proj_dir, 'splits', opt.split, 'test_files.txt'))
-    files = readlines(osp.join(proj_dir, 'splits', opt.split, 'CAM_FRONTcopydemo.txt'))
+        # Get segments to visualize
+        # files = readlines(osp.join(proj_dir, 'splits', opt.split, 'test_files.txt'))
+        files = readlines(osp.join(proj_dir, 'splits', opt.split, 'test_1sample_demo.txt'))
 
-    segments = sorted(list(set([f.split()[0] for f in files])))
+        segments = sorted(list(set([f.split()[0] for f in files])))
 
-    cam_names = ["CAM_FRONT", "CAM_FRONT_LEFT", "CAM_FRONT_RIGHT", "CAM_BACK", "CAM_BACK_LEFT", "CAM_BACK_RIGHT"]
-
-    segments[0] =osp.join('nuscenes-mini',segments[0])
-    # Iterate over the segments  分不同scenes
-    for ii, segment in enumerate(segments):
-        print(f"{ii + 1}/{len(segments)} segments - {segment}")
-        vis_segment(opt, trainer, segment, outdir)
+        segments[0] =osp.join('nuscenes-mini',segments[0])
+        # Iterate over the segments  分不同scenes
+        for ii, segment in enumerate(segments):
+            print(f"{ii + 1}/{len(segments)} segments - {segment}")
+            vis_segment(opt, trainer, segment, outdir)
 
 
 if __name__ == '__main__':

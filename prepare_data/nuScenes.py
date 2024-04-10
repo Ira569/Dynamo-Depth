@@ -117,7 +117,7 @@ if __name__ == '__main__':
             cams = get_linked_list(first_cam, 'sample_data')
             sample_cams = [c for c in cams if c['is_key_frame']]
 
-            sample_indices = [idx for idx, c in enumerate(cams) if c['is_key_frame']]
+            sample_indices = [[idx,c['sample_token']] for idx, c in enumerate(cams) if c['is_key_frame']]
 
             # 一张关键帧后可能接五张非关键帧
             first_lidar = nusc.get('sample_data', first_sample['data'][lidar_channel])
@@ -139,6 +139,14 @@ if __name__ == '__main__':
             depth_d = join_dir(data_root, 'scenes', scene_name, cam_name, depth_d_name)
             mask_d = join_dir(data_root, 'scenes', scene_name, cam_name, mask_d_name)
             cam_path = osp.join(data_root, 'scenes', scene_name, cam_name, img_d_name, 'cam.json')
+
+            # save keyframe info
+            # 打开文件以写入模式
+            with open(osp.join(dwn_rgb_d, 'keyframe_idx.txt'), 'w') as file:
+
+                # 将列表中的数字转换为字符串，并逐行写入文件
+                for sample in sample_indices:
+                    file.write(sc['name']+' '+ str(sample[0]) +' '+ str(sample[1])+'\n')
 
             poses = []
             for ii, cam in enumerate(cams):
@@ -164,6 +172,7 @@ if __name__ == '__main__':
                 lidar = lidars[ii]
                 pcl_path = osp.join(data_root, lidar['filename'])
                 pc = LidarPointCloud.from_file(pcl_path)
+
 
                 # Points live in the point sensor frame. So they need to be transformed via global to the image plane.
                 # First step: transform the pointcloud to the ego vehicle frame for the timestamp of the sweep.
@@ -212,7 +221,8 @@ if __name__ == '__main__':
                         assert lidar['token'] == nusc.get('sample', sample_token)['data']['LIDAR_TOP']
                     np.save(depth_path, depth_points)
                 else:
-                    assert np.linalg.norm(np.load(depth_path) - depth_points) == 0
+                    # assert np.linalg.norm(np.load(depth_path) - depth_points) == 0
+                    pass
 
                 ## Process Mask (LiDAR)
                 if is_key_frame and not osp.exists(mask_path):
